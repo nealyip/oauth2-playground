@@ -16,3 +16,8 @@ Three servers will be opened once running the above command including
 authorization server, client and resource server.  
 
 If there is any problem opening because of using port, you may change the port from config.py  
+
+### From Docker ###
+```docker
+docker run --rm -p 8010:8010 -p 8080:8080 nealyip/oauth2-playground
+```
