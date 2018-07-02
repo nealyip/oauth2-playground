@@ -2,7 +2,7 @@
 A simple implementation of oauth2 using python, as a playground, it doesn't do too much checking.  
 
 ### Requirements ###
-Python 3.4
+Python 3.3
 
 ### Dependencies ###
 None
@@ -19,5 +19,5 @@ If there is any problem opening because of using port, you may change the port f
 
 ### From Docker ###
 ```docker
-docker run --rm -p 8010:8010 -p 8080:8080 nealyip/oauth2-playground
+docker run --rm -tp 8010:8010 -p 8080:8080 nealyip/oauth2-playground
 ```
