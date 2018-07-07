@@ -42,16 +42,24 @@ def generate_token(grant_type, code, **kwargs):
         token.update({
             'start_time': datetime_helper.utcnow()
         })
-    elif grant_type == 'implicit_grant' :
-        scopes =  kwargs.get('scopes')
+    elif grant_type == 'implicit_grant':
+        scopes = kwargs.get('scopes')
         token.update({
             'expires_in': ACCESS_TOKEN_LIFETIME,
             'scopes': scopes.decode('utf-8') if scopes is bytes else scopes
         })
     elif grant_type == 'official_client':
-        scopes =  kwargs.get('scopes')
+        scopes = kwargs.get('scopes')
         token.update({
             'refresh_token': generate_code(),
+            'start_time': datetime_helper.utcnow(),
+            'expires_in': ACCESS_TOKEN_LIFETIME,
+            'username': 'a',
+            'scopes': scopes.decode('utf-8') if scopes is bytes else scopes
+        })
+    elif grant_type == 'client_credentials':
+        scopes = kwargs.get('scopes')
+        token.update({
             'start_time': datetime_helper.utcnow(),
             'expires_in': ACCESS_TOKEN_LIFETIME,
             'username': 'a',
@@ -79,14 +87,26 @@ class AuthServerHandler(local_server.Handler):
         query = dict(parse.parse_qsl(parsed.query))
 
         if parsed.path == '/login':
-            global authorization_codes
+            response_type = query.get('response_type')
             content_length = int(self.headers['Content-Length'])
             q = dict(parse.parse_qsl(self.rfile.read(content_length)))
+
+            if response_type == 'client_credentials':
+                # Client ID Client Secret
+                assert clients.get(q.get(b'client_id', b'').decode()) == q.get(b'client_secret',
+                                                                           b'').decode(), 'Wrong Secret'
+                token = generate_token('client_credentials', '', scopes=query.get('scopes'))
+                body = json.dumps({
+                    key: token.get(key) for key in token if
+                    key in {'access_token', 'start_time', 'expires_in'}
+                })
+                self.ok(body)
+                return
+
+            global authorization_codes
             assert q.get(b'username', b'') != b'', 'Missing username'
             assert q.get(b'pw', b'') != b'', 'Missing password'
             username = q.get(b'username').decode('utf-8')
-
-            response_type = query.get('response_type')
 
             if response_type == 'code':
                 # Authorization grant flow
@@ -106,6 +126,7 @@ class AuthServerHandler(local_server.Handler):
 
                 self.redirect('%s#access_token=%s' % (query.get('redirect_url', ''), token['access_token']))
             elif response_type == 'official_client':
+                # Resource Owner Password Credentials
                 token = generate_token('official_client', '', scopes=query.get('scopes'))
                 body = json.dumps({
                     key: token.get(key) for key in token if

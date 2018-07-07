@@ -7,7 +7,7 @@ import urllib.request as request
 from urllib.error import HTTPError
 
 import library.local_server as local_server
-from . import AUTH_SERVER_PORT, CLIENT_PORT, RESOURCE_SERVER_PORT, HOST, CLIENT_ID
+from . import AUTH_SERVER_PORT, CLIENT_PORT, RESOURCE_SERVER_PORT, HOST, CLIENT_ID, CLIENT_SECRET
 from .credentials import Credentials, SESSIONS
 
 
@@ -44,6 +44,18 @@ def login(username, password):
     }).encode('utf-8')).read().decode('utf-8')
     result = json.loads(result)
     return {key: result.get(key) for key in ('access_token', 'expires_in', 'start_time', 'refresh_token', 'scopes')}
+
+
+def client_login():
+    req = request.Request('http://%s:%d/login?response_type=%s&scopes=%s' % (
+        HOST, AUTH_SERVER_PORT, 'client_credentials', 'read_image,read_profile'
+    ), method='POST')
+    result = request.urlopen(req, data=parse.urlencode({
+        'client_id': CLIENT_ID,
+        'client_secret': CLIENT_SECRET
+    }).encode('utf-8')).read().decode('utf-8')
+    result = json.loads(result)
+    return {key: result.get(key) for key in ('access_token', 'expires_in', 'start_time', 'scopes')}
 
 
 class ClientHandler(local_server.Handler):
@@ -90,12 +102,16 @@ class ClientHandler(local_server.Handler):
                             'response_type': 'token'
                         })
                     )
-                    res_pass = '<a href="http://%s:%d/ropc_login">Resource owner password credentials (For offical apps)</a>' % (
+                    res_pass = '<a href="http://%s:%d/ropc_login">Resource Owner Password Credentials (For offical apps)</a>' % (
                         HOST,
                         CLIENT_PORT
                     )
-                    body = '<!DOCTYPE html><html><body><h1>Welcome to client</h1><h3>Select a grant flow</h3><p>%s</p><p>%s</p><p>%s</p></body></html>' % (
-                        authorization_code, implicit_grant, res_pass)
+                    client_id_client_secret = '<a href="http://%s:%d/cc_login">Client ID Client Secret (For confidential client, protected resources owned by client itself)</a>' % (
+                        HOST,
+                        CLIENT_PORT
+                    )
+                    body = '<!DOCTYPE html><html><body><h1>Welcome to client</h1><h3>Select a grant flow</h3><p>%s</p><p>%s</p><p>%s</p><p>%s</p></body></html>' % (
+                        authorization_code, implicit_grant, res_pass, client_id_client_secret)
                     self.ok(body)
             elif parsed.path == '/redirect':
                 code = query.get('code')
@@ -113,6 +129,9 @@ class ClientHandler(local_server.Handler):
             elif parsed.path == '/ropc_login':
                 body = '<!DOCTYPE html><html><body><h1>Welcome to client (Login page)</h1><form method=post>Login: <input name=username value=a /><input name=pw type=password value=a /><input type=submit /></form></body></html>'
                 self.ok(body)
+            elif parsed.path == '/cc_login':
+                secret = client_login()
+                self.redirect('http://%s:%d/user_cc' % (HOST, CLIENT_PORT))
             elif parsed.path == '/user':
                 assert search_session and SESSIONS.get(search_session.group(1)), 'Session not found'
                 oauth2 = SESSIONS.get(search_session.group(1)).get('oauth2')
@@ -121,6 +140,9 @@ class ClientHandler(local_server.Handler):
                 images = json.loads(get_user_images(token)) or []
                 body = '<h1>Hello %s</h1><p><h3>You have these images</h3>%s</p>' % (
                     user, '\r\n'.join(['<div>%s</div>' % image for image in images]))
+                self.ok(body)
+            elif parsed.path == '/user_cc':
+                body = '<h1>Welcome to client (Client ID Client Secret page)</h1><p>Display content stored by client</p>'
                 self.ok(body)
         except HTTPError as e:
             print(e.fp.read())
