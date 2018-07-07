@@ -33,7 +33,33 @@ def get_user_images(access_token):
     return req.read().decode('utf-8')
 
 
+def login(username, password):
+    req = request.Request('http://%s:%d/login?response_type=%s&scopes=%s' % (
+        HOST, AUTH_SERVER_PORT, 'official_client', 'read_image,read_profile'
+    ), method='POST')
+
+    result = request.urlopen(req, data=parse.urlencode({
+        'username': username,
+        'pw': password
+    }).encode('utf-8')).read().decode('utf-8')
+    result = json.loads(result)
+    return {key: result.get(key) for key in ('access_token', 'expires_in', 'start_time', 'refresh_token', 'scopes')}
+
+
 class ClientHandler(local_server.Handler):
+
+    def do_POST(self):
+        parsed = parse.urlparse(self.path)
+        if parsed.path == '/ropc_login':
+            content_length = int(self.headers['Content-Length'])
+            q = dict(parse.parse_qsl(self.rfile.read(content_length)))
+            result = login(*[q.get(x).decode('utf-8') for x in [b'username', b'pw']])
+            session_id = generateCode()
+            SESSIONS.setdefault(session_id, {'oauth2': Credentials(result)})
+            self.redirect('http://%s:%d/user' % (HOST, CLIENT_PORT), headers={
+                "Set-Cookie": 'SESSIONID=%s; httponly' % (session_id)
+            }.items())
+
     def do_GET(self):
         try:
             parsed = parse.urlparse(self.path)
@@ -64,8 +90,12 @@ class ClientHandler(local_server.Handler):
                             'response_type': 'token'
                         })
                     )
-                    body = '<!DOCTYPE html><html><body><h1>Welcome to client</h1><p>%s</p><p>%s</p></body></html>' % (
-                        authorization_code, implicit_grant)
+                    res_pass = '<a href="http://%s:%d/ropc_login">Resource owner password credentials (For offical apps)</a>' % (
+                        HOST,
+                        CLIENT_PORT
+                    )
+                    body = '<!DOCTYPE html><html><body><h1>Welcome to client</h1><h3>Select a grant flow</h3><p>%s</p><p>%s</p><p>%s</p></body></html>' % (
+                        authorization_code, implicit_grant, res_pass)
                     self.ok(body)
             elif parsed.path == '/redirect':
                 code = query.get('code')
@@ -79,6 +109,9 @@ class ClientHandler(local_server.Handler):
                 body = '<!DOCTYPE html><html><body><h1>Welcome to client (User page)</h1><p>Server receive no access token as the token is passed by fragment from auth server. Refresh token is therefore not allowed.</p><script>%s</script></body></html>' % (
                     'document.body.appendChild(document.createTextNode("Access response server by this access token: "+location.hash.split(/=/)[1])); location.hash="";'
                 )
+                self.ok(body)
+            elif parsed.path == '/ropc_login':
+                body = '<!DOCTYPE html><html><body><h1>Welcome to client (Login page)</h1><form method=post>Login: <input name=username value=a /><input name=pw type=password value=a /><input type=submit /></form></body></html>'
                 self.ok(body)
             elif parsed.path == '/user':
                 assert search_session and SESSIONS.get(search_session.group(1)), 'Session not found'

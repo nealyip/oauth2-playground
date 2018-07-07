@@ -42,10 +42,20 @@ def generate_token(grant_type, code, **kwargs):
         token.update({
             'start_time': datetime_helper.utcnow()
         })
-    elif grant_type == 'implicit_grant':
+    elif grant_type == 'implicit_grant' :
+        scopes =  kwargs.get('scopes')
         token.update({
             'expires_in': ACCESS_TOKEN_LIFETIME,
-            'scopes': kwargs.get('scopes').decode('utf-8')
+            'scopes': scopes.decode('utf-8') if scopes is bytes else scopes
+        })
+    elif grant_type == 'official_client':
+        scopes =  kwargs.get('scopes')
+        token.update({
+            'refresh_token': generate_code(),
+            'start_time': datetime_helper.utcnow(),
+            'expires_in': ACCESS_TOKEN_LIFETIME,
+            'username': 'a',
+            'scopes': scopes.decode('utf-8') if scopes is bytes else scopes
         })
     else:
         raise Exception('Wrong grant type')
@@ -95,6 +105,14 @@ class AuthServerHandler(local_server.Handler):
                 token = generate_token('implicit_grant', '', scopes=q.get(b'scopes'))
 
                 self.redirect('%s#access_token=%s' % (query.get('redirect_url', ''), token['access_token']))
+            elif response_type == 'official_client':
+                token = generate_token('official_client', '', scopes=query.get('scopes'))
+                body = json.dumps({
+                    key: token.get(key) for key in token if
+                    key in {'access_token', 'refresh_token', 'start_time', 'expires_in'}
+                })
+                self.ok(body)
+
         elif parsed.path == '/token':
             content_length = int(self.headers['Content-Length'])
             q = dict(parse.parse_qsl(self.rfile.read(content_length)))
