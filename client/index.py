@@ -19,7 +19,7 @@ def generateCode():
 
 def get_user_info(access_token):
     r = request.Request('http://%s:%d/info' % (HOST, RESOURCE_SERVER_PORT), headers={
-        'Authorization' : 'Bearer %s' %access_token
+        'Authorization': 'Bearer %s' % access_token
     })
     req = request.urlopen(r)
     return req.read().decode('utf-8')
@@ -27,7 +27,7 @@ def get_user_info(access_token):
 
 def get_user_images(access_token):
     r = request.Request('http://%s:%d/images' % (HOST, RESOURCE_SERVER_PORT), headers={
-        'Authorization' : 'Bearer %s' %access_token
+        'Authorization': 'Bearer %s' % access_token
     })
     req = request.urlopen(r)
     return req.read().decode('utf-8')
@@ -51,11 +51,21 @@ class ClientHandler(local_server.Handler):
                             {
                                 'redirect_url': 'http://%s:%d/redirect' % (HOST, CLIENT_PORT),
                                 'client_id': CLIENT_ID,
-                                'scopes': 'read_image,read_profile'
+                                'scopes': 'read_image,read_profile',
+                                'response_type': 'code'
                             }))
-                    implicit_grant = '<a href=""></a>'
-                    body = '<!DOCTYPE html><html><body><h1>Welcome to client</h1><p>%s</p></body></html>' % (
-                        authorization_code)
+                    implicit_grant = '<a href="http://%s:%d/login?%s">Implicit Grant (For client side js application)</a>' % (
+                        HOST,
+                        AUTH_SERVER_PORT,
+                        parse.urlencode({
+                            'redirect_url': 'http://%s:%d/redirect_implicit_grant' % (HOST, CLIENT_PORT),
+                            'client_id': CLIENT_ID,
+                            'scopes': 'read_image,read_profile',
+                            'response_type': 'token'
+                        })
+                    )
+                    body = '<!DOCTYPE html><html><body><h1>Welcome to client</h1><p>%s</p><p>%s</p></body></html>' % (
+                        authorization_code, implicit_grant)
                     self.ok(body)
             elif parsed.path == '/redirect':
                 code = query.get('code')
@@ -65,6 +75,11 @@ class ClientHandler(local_server.Handler):
                 self.redirect('http://%s:%d/user' % (HOST, CLIENT_PORT), headers={
                     "Set-Cookie": 'SESSIONID=%s; httponly' % (session_id)
                 }.items())
+            elif parsed.path == '/redirect_implicit_grant':
+                body = '<!DOCTYPE html><html><body><h1>Welcome to client (User page)</h1><p>Server receive no access token as the token is passed by fragment from auth server. Refresh token is therefore not allowed.</p><script>%s</script></body></html>' % (
+                    'document.body.appendChild(document.createTextNode("Access response server by this access token: "+location.hash.split(/=/)[1])); location.hash="";'
+                )
+                self.ok(body)
             elif parsed.path == '/user':
                 assert search_session and SESSIONS.get(search_session.group(1)), 'Session not found'
                 oauth2 = SESSIONS.get(search_session.group(1)).get('oauth2')

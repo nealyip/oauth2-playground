@@ -20,7 +20,7 @@ access_tokens = {
 }
 
 
-def generate_token(grant_type, code):
+def generate_token(grant_type, code, **kwargs):
     access_token = generate_code()
     token = {}
     if grant_type == 'authorization_code':
@@ -29,7 +29,6 @@ def generate_token(grant_type, code):
         assert username is not None, 'Auth code incorrect'
         del authorization_codes[code]  # use once only
         token = {
-            'access_token': access_token,
             'refresh_token': generate_code(),
             'start_time': datetime_helper.utcnow(),
             'expires_in': ACCESS_TOKEN_LIFETIME,
@@ -41,12 +40,17 @@ def generate_token(grant_type, code):
         assert len(found) > 0, 'Refresh token not found'
         token = access_tokens.get(list(found)[0]).copy()
         token.update({
-            'access_token': access_token,
             'start_time': datetime_helper.utcnow()
+        })
+    elif grant_type == 'implicit_grant':
+        token.update({
+            'expires_in': ACCESS_TOKEN_LIFETIME,
+            'scopes': kwargs.get('scopes').decode('utf-8')
         })
     else:
         raise Exception('Wrong grant type')
 
+    token['access_token'] = access_token
     access_tokens.setdefault(access_token, {})
     access_tokens[access_token] = token
     return token
@@ -62,7 +66,7 @@ class AuthServerHandler(local_server.Handler):
     def do_POST(self):
 
         parsed = parse.urlparse(self.path)
-        query = parse.parse_qs(parsed.query)
+        query = dict(parse.parse_qsl(parsed.query))
 
         if parsed.path == '/login':
             global authorization_codes
@@ -71,16 +75,26 @@ class AuthServerHandler(local_server.Handler):
             assert q.get(b'username', b'') != b'', 'Missing username'
             assert q.get(b'pw', b'') != b'', 'Missing password'
             username = q.get(b'username').decode('utf-8')
-            authcode = generate_code()
-            authorization_codes.setdefault(authcode, '')
-            authorization_codes[authcode] = {
-                'username': username,
-                'scopes': q.get(b'scopes')
-            }
 
-            self.redirect('%s?%s' % (query.get('redirect_url', [])[0], parse.urlencode({
-                'code': authcode
-            })))
+            response_type = query.get('response_type')
+
+            if response_type == 'code':
+                # Authorization grant flow
+                authcode = generate_code()
+                authorization_codes.setdefault(authcode, '')
+                authorization_codes[authcode] = {
+                    'username': username,
+                    'scopes': q.get(b'scopes')
+                }
+
+                self.redirect('%s?%s' % (query.get('redirect_url', ''), parse.urlencode({
+                    'code': authcode
+                })))
+            elif response_type == 'token':
+                # Implicit grant flow
+                token = generate_token('implicit_grant', '', scopes=q.get(b'scopes'))
+
+                self.redirect('%s#access_token=%s' % (query.get('redirect_url', ''), token['access_token']))
         elif parsed.path == '/token':
             content_length = int(self.headers['Content-Length'])
             q = dict(parse.parse_qsl(self.rfile.read(content_length)))
