@@ -110,7 +110,7 @@ class Handler(local_server.Handler):
 
                 self.ok(body)
             elif parsed.path == '/user':
-                token = access_tokens.get(query.get('token'))
+                token = access_tokens.get(self.headers.get('Authorization')[7:])
                 assert token.get('scopes'), 'Token not found'
                 start_time = token.get('start_time')
                 assert not datetime_helper.is_expired(start_time, token.get('expires_in')), 'Expired'

@@ -18,12 +18,18 @@ def generateCode():
 
 
 def get_user_info(access_token):
-    req = request.urlopen('http://%s:%d/info?token=%s' % (HOST, RESOURCE_SERVER_PORT, access_token))
+    r = request.Request('http://%s:%d/info' % (HOST, RESOURCE_SERVER_PORT), headers={
+        'Authorization' : 'Bearer %s' %access_token
+    })
+    req = request.urlopen(r)
     return req.read().decode('utf-8')
 
 
 def get_user_images(access_token):
-    req = request.urlopen('http://%s:%d/images?token=%s' % (HOST, RESOURCE_SERVER_PORT, access_token))
+    r = request.Request('http://%s:%d/images' % (HOST, RESOURCE_SERVER_PORT), headers={
+        'Authorization' : 'Bearer %s' %access_token
+    })
+    req = request.urlopen(r)
     return req.read().decode('utf-8')
 
 
@@ -47,6 +53,7 @@ class Handler(local_server.Handler):
                                 'client_id': CLIENT_ID,
                                 'scopes': 'read_image,read_profile'
                             }))
+                    implicit_grant = '<a href=""></a>'
                     body = '<!DOCTYPE html><html><body><h1>Welcome to client</h1><p>%s</p></body></html>' % (
                         authorization_code)
                     self.ok(body)

@@ -19,7 +19,10 @@ USERS = {
 
 
 def get_permission(token):
-    user = request.urlopen('http://%s:%d/user?token=%s' % (HOST, AUTH_SERVER_PORT, token))
+    r = request.Request('http://%s:%d/user' % (HOST, AUTH_SERVER_PORT), headers={
+        'Authorization' : 'Bearer %s' %token
+    })
+    user = request.urlopen(r)
     body = user.read()
 
     return json.loads(body.decode('utf-8'))
@@ -29,10 +32,10 @@ class Handler(local_server.Handler):
     def do_GET(self):
         try:
             parsed = parse.urlparse(self.path)
-            query = dict(parse.parse_qsl(parsed.query))
+            token = self.headers.get('Authorization')
 
-            assert query.get('token') is not None, 'Missing token'
-            permission = get_permission(query.get('token'))
+            assert token is not None, 'Missing token'
+            permission = get_permission(token[7:])
             assert not datetime_helper.is_expired(permission.get('not_after'), 0), 'Expired'
 
             user = USERS.get(permission.get('username'))
