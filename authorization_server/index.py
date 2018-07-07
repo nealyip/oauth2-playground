@@ -58,7 +58,7 @@ def generate_code():
     return m.hexdigest()
 
 
-class Handler(local_server.Handler):
+class AuthServerHandler(local_server.Handler):
     def do_POST(self):
 
         parsed = parse.urlparse(self.path)
@@ -130,4 +130,4 @@ class Handler(local_server.Handler):
 
 
 def run():
-    local_server.serve(AUTH_SERVER_PORT, Handler)
+    local_server.serve(AUTH_SERVER_PORT, AuthServerHandler)

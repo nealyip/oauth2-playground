@@ -33,7 +33,7 @@ def get_user_images(access_token):
     return req.read().decode('utf-8')
 
 
-class Handler(local_server.Handler):
+class ClientHandler(local_server.Handler):
     def do_GET(self):
         try:
             parsed = parse.urlparse(self.path)
@@ -82,4 +82,4 @@ class Handler(local_server.Handler):
 
 
 def run():
-    local_server.serve(CLIENT_PORT, Handler)
+    local_server.serve(CLIENT_PORT, ClientHandler)

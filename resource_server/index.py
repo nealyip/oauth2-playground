@@ -28,7 +28,7 @@ def get_permission(token):
     return json.loads(body.decode('utf-8'))
 
 
-class Handler(local_server.Handler):
+class ResServerHandler(local_server.Handler):
     def do_GET(self):
         try:
             parsed = parse.urlparse(self.path)
@@ -55,4 +55,4 @@ class Handler(local_server.Handler):
 
 
 def run():
-    local_server.serve(8000, Handler)
+    local_server.serve(8000, ResServerHandler)

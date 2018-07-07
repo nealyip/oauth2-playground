@@ -36,6 +36,9 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def log_request(self, *args, **kwargs):
+        print('[%-17s] %s' % (self.__class__.__name__, self.requestline))
+
 
 def serve(port, Handler):
     httpd = socketserver.ThreadingTCPServer(("", port), Handler)
