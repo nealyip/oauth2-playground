@@ -50,7 +50,7 @@ if __name__ == '__main__':
     chromepath = 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe'
     url = "http://%s:%d" % (HOST, CLIENT_PORT)
     if os.path.isfile(chromepath):
-        webbrowser.get("{:s} %s".format(chromepath)).open(url)
+        webbrowser.get("{!s} %s".format(chromepath)).open(url)
     else:
         print('Please goto %s with your favorite browser.' % url)
     [server.join() for server in servers]
