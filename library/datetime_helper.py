@@ -14,5 +14,6 @@ def is_expired(t: str, seconds: int):
     exp = expiry(t, seconds)
     return datetime.datetime.now(tz=datetime.timezone.utc) > exp
 
+
 def utcnow():
-    return datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
+    return datetime.datetime.now(tz=datetime.timezone.utc).isoformat(timespec='milliseconds')
